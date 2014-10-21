@@ -1,3 +1,7 @@
+# strong-fork-syslog
+
+**This is a fork of [schamane/node-syslog](https://github.com/schamane/node-syslog)**
+
 # Node-Syslog
 
 v1.1.7
