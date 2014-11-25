@@ -1,31 +1,36 @@
 {
-    "name": "strong-fork-syslog",
-    "version": "1.1.7",
-    "main": "./node-syslog",
-    "engines": {
-        "node" : ">=0.8.0"
-    },
-    "os": [
-        "!win32"
-    ],
-    "scripts": {
-        "test": "node test.js"
-    },
-    "description": "strongloop internal fork of schamane/node-syslog",
-    "author": "Nazar Kulyk <nasar.kulyk@googlemail.com>",
-    "homepage": "http://github.com/strongloop-forks/node-syslog",
-    "repository" :
+  "name": "strong-fork-syslog",
+  "version": "1.2.0",
+  "main": "./node-syslog",
+  "engines": {
+    "node": ">=0.8.0"
+  },
+  "os": [
+    "!win32"
+  ],
+  "scripts": {
+    "test": "node test.js"
+  },
+  "description": "strongloop internal fork of schamane/node-syslog",
+  "author": "Nazar Kulyk <nasar.kulyk@googlemail.com>",
+  "homepage": "http://github.com/strongloop-forks/node-syslog",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:strongloop-forks/node-syslog.git"
+  },
+  "bugs": {
+    "url": "https://github.com/strongloop-forks/node-syslog/issues"
+  },
+  "licenses": [
     {
-        "type" : "git",
-        "url" : "git@github.com:strongloop-forks/node-syslog.git"
-    },
-    "bugs": {
-        "url": "https://github.com/strongloop-forks/node-syslog/issues"
-    },
-    "licenses": [
-    {
-        "type": "Simplified BSD License",
-        "url": "http://en.wikipedia.org/wiki/BSD_licenses"
-    }],
-    "tags": ["syslog", "system", "log", "logging" ]
+      "type": "Simplified BSD License",
+      "url": "http://en.wikipedia.org/wiki/BSD_licenses"
+    }
+  ],
+  "tags": [
+    "syslog",
+    "system",
+    "log",
+    "logging"
+  ]
 }
