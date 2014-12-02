@@ -19,7 +19,7 @@
 
 namespace compat {
 
-#if COMPAT_NODE_VERSION == 10
+#if defined(COMPAT_NODE_VERSION_10)
 #define COMPAT_ISOLATE
 #define COMPAT_ISOLATE_
 #else
@@ -33,14 +33,67 @@ template <typename T>
 inline void Use(const T&) {}
 
 template <typename T>
+class HasGetConstructorMethod {
+#if defined(_MSC_VER) && _MSC_VER < 1800
+ public:
+  // VS before 2013 doesn't handle SFINAE.  Because V8 3.29 does not compile
+  // with older VS versions, if the compiler is not at least VS 2013, we know
+  // that we are building against V8 3.28 or older.
+  static const bool value = true;
+#else
+  template <typename U>
+  static int16_t M(int (*)[sizeof(&U::GetConstructor)]);
+  template <typename U>
+  static int32_t M(...);
+
+ public:
+  static const bool value = (sizeof(M<T>(0)) == sizeof(int16_t));
+#endif
+};
+
+// V8 doesn't export a version macro that we can #ifdef on so we apply some
+// SFINAE magic to figure out with what V8 version we are dealing.  In truth,
+// Object::GetConstructor() was removed sometime during the 3.28 development
+// cycle but we only have to discern between 3.26 and 3.29 because those are
+// the V8 versions that joyent/node and node-forward/node ship respectively.
+static const bool AT_LEAST_V8_3_29 =
+    (HasGetConstructorMethod<v8::Object>::value == false);
+
+template <bool AT_LEAST_V8_3_29, typename T, typename U>
+void SetAddHistogramSampleFunction(U*, v8::AddHistogramSampleCallback callback,
+                                   int (*)[AT_LEAST_V8_3_29 == false] = 0) {
+  T::SetAddHistogramSampleFunction(callback);
+}
+
+template <bool AT_LEAST_V8_3_29, typename T, typename U>
+void SetAddHistogramSampleFunction(U* isolate,
+                                   v8::AddHistogramSampleCallback callback,
+                                   int (*)[AT_LEAST_V8_3_29 == true] = 0) {
+  isolate->SetAddHistogramSampleFunction(callback);
+}
+
+template <bool AT_LEAST_V8_3_29, typename T, typename U>
+void SetCreateHistogramFunction(U*, v8::CreateHistogramCallback callback,
+                                int (*)[AT_LEAST_V8_3_29 == false] = 0) {
+  T::SetCreateHistogramFunction(callback);
+}
+
+template <bool AT_LEAST_V8_3_29, typename T, typename U>
+void SetCreateHistogramFunction(U* isolate,
+                                v8::CreateHistogramCallback callback,
+                                int (*)[AT_LEAST_V8_3_29 == true] = 0) {
+  isolate->SetCreateHistogramFunction(callback);
+}
+
+template <typename T>
 inline v8::Local<T> ToLocal(v8::Local<T> handle) {
   return handle;
 }
 
-#if COMPAT_NODE_VERSION == 10
+#if defined(COMPAT_NODE_VERSION_10)
 template <typename T>
 inline v8::Local<T> ToLocal(v8::Handle<T> handle) {
-  return v8::Local<T>::New(handle);
+  return v8::Local<T>(*handle);
 }
 #endif
 
@@ -93,6 +146,17 @@ v8::Local<v8::Integer> Integer::NewFromUnsigned(v8::Isolate* isolate,
   return v8::Integer::NewFromUnsigned(COMPAT_ISOLATE_ value);
 }
 
+void Isolate::SetAddHistogramSampleFunction(
+    v8::Isolate* isolate, v8::AddHistogramSampleCallback callback) {
+  I::SetAddHistogramSampleFunction<I::AT_LEAST_V8_3_29, v8::V8>(isolate,
+                                                                callback);
+}
+
+void Isolate::SetCreateHistogramFunction(v8::Isolate* isolate,
+                                         v8::CreateHistogramCallback callback) {
+  I::SetCreateHistogramFunction<I::AT_LEAST_V8_3_29, v8::V8>(isolate, callback);
+}
+
 v8::Local<v8::Number> Number::New(v8::Isolate* isolate, double value) {
   I::Use(isolate);
   return v8::Number::New(COMPAT_ISOLATE_ value);
@@ -104,14 +168,6 @@ v8::Local<v8::Object> Object::New(v8::Isolate* isolate) {
 }
 
 template <typename T>
-Persistent<T>::~Persistent() {
-  // Trying to dispose the handle when the VM has been destroyed
-  // (e.g. at program exit) will segfault.
-  if (v8::V8::IsDead()) return;
-  Reset();
-}
-
-template <typename T>
 bool Persistent<T>::IsEmpty() const {
   return handle_.IsEmpty();
 }
@@ -120,11 +176,11 @@ ReturnType ReturnableHandleScope::Return(bool value) {
   return Return(Boolean::New(isolate(), value));
 }
 
-ReturnType ReturnableHandleScope::Return(intptr_t value) {
+ReturnType ReturnableHandleScope::Return(int32_t value) {
   return Return(Integer::New(isolate(), value));
 }
 
-ReturnType ReturnableHandleScope::Return(int value) {
+ReturnType ReturnableHandleScope::Return(uint32_t value) {
   return Return(Integer::New(isolate(), value));
 }
 
@@ -136,11 +192,84 @@ ReturnType ReturnableHandleScope::Return(const char* value) {
   return Return(String::NewFromUtf8(isolate(), value));
 }
 
+ReturnType ReturnableHandleScope::Throw(v8::Local<v8::Value> exception) {
+  Isolate::ThrowException(isolate(), exception);
+  return Return();
+}
+
+ReturnType ReturnableHandleScope::ThrowError(const char* exception) {
+  return ThrowError(String::NewFromUtf8(isolate(), exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowError(v8::Local<v8::String> exception) {
+  return Throw(v8::Exception::Error(exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowRangeError(const char* exception) {
+  return ThrowRangeError(String::NewFromUtf8(isolate(), exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowRangeError(
+    v8::Local<v8::String> exception) {
+  return Throw(v8::Exception::RangeError(exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowReferenceError(const char* exception) {
+  return ThrowReferenceError(String::NewFromUtf8(isolate(), exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowReferenceError(
+    v8::Local<v8::String> exception) {
+  return Throw(v8::Exception::ReferenceError(exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowSyntaxError(const char* exception) {
+  return ThrowSyntaxError(String::NewFromUtf8(isolate(), exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowSyntaxError(
+    v8::Local<v8::String> exception) {
+  return Throw(v8::Exception::SyntaxError(exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowTypeError(const char* exception) {
+  return ThrowTypeError(String::NewFromUtf8(isolate(), exception));
+}
+
+ReturnType ReturnableHandleScope::ThrowTypeError(
+    v8::Local<v8::String> exception) {
+  return Throw(v8::Exception::TypeError(exception));
+}
+
 v8::Isolate* ReturnableHandleScope::isolate() const {
   return args_.GetIsolate();
 }
 
-#if COMPAT_NODE_VERSION == 10
+#if defined(COMPAT_NODE_VERSION_10)
+
+void CpuProfiler::StartCpuProfiling(v8::Isolate* isolate,
+                                    v8::Local<v8::String> title) {
+  if (title.IsEmpty()) title = v8::String::Empty(isolate);
+  return v8::CpuProfiler::StartProfiling(title);
+}
+
+const v8::CpuProfile* CpuProfiler::StopCpuProfiling(
+    v8::Isolate* isolate, v8::Local<v8::String> title) {
+  if (title.IsEmpty()) title = v8::String::Empty(isolate);
+  return v8::CpuProfiler::StopProfiling(title);
+}
+
+void Isolate::GetHeapStatistics(v8::Isolate* isolate,
+                                v8::HeapStatistics* stats) {
+  I::Use(isolate);
+  return v8::V8::GetHeapStatistics(stats);
+}
+
+v8::Local<v8::Value> Isolate::ThrowException(v8::Isolate* isolate,
+                                             v8::Local<v8::Value> exception) {
+  I::Use(isolate);
+  return I::ToLocal<v8::Value>(v8::ThrowException(exception));
+}
 
 const v8::HeapSnapshot* HeapProfiler::TakeHeapSnapshot(
     v8::Isolate* isolate, v8::Local<v8::String> title) {
@@ -194,7 +323,30 @@ ReturnType ReturnableHandleScope::Return(v8::Local<v8::Value> value) {
   return handle_scope_.Close(value);
 }
 
-#elif COMPAT_NODE_VERSION == 12
+#elif defined(COMPAT_NODE_VERSION_12)
+
+void CpuProfiler::StartCpuProfiling(v8::Isolate* isolate,
+                                    v8::Local<v8::String> title) {
+  const bool record_samples = true;
+  if (title.IsEmpty()) title = v8::String::Empty(isolate);
+  return isolate->GetCpuProfiler()->StartCpuProfiling(title, record_samples);
+}
+
+const v8::CpuProfile* CpuProfiler::StopCpuProfiling(
+    v8::Isolate* isolate, v8::Local<v8::String> title) {
+  if (title.IsEmpty()) title = v8::String::Empty(isolate);
+  return isolate->GetCpuProfiler()->StopCpuProfiling(title);
+}
+
+void Isolate::GetHeapStatistics(v8::Isolate* isolate,
+                                v8::HeapStatistics* stats) {
+  return isolate->GetHeapStatistics(stats);
+}
+
+v8::Local<v8::Value> Isolate::ThrowException(v8::Isolate* isolate,
+                                             v8::Local<v8::Value> exception) {
+  return isolate->ThrowException(exception);
+}
 
 const v8::HeapSnapshot* HeapProfiler::TakeHeapSnapshot(
     v8::Isolate* isolate, v8::Local<v8::String> title) {

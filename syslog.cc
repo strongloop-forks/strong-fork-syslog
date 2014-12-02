@@ -6,19 +6,6 @@ using compat::ReturnType;
 using compat::ArgumentType;
 using compat::ReturnableHandleScope;
 
-#if COMPAT_NODE_VERSION < 12
-static ReturnType ThrowException(const ArgumentType& args, const char* m) {
-    return v8::ThrowException(v8::Exception::Error(
-		v8::String::New(m)
-		));
-}
-#else
-static ReturnType ThrowException(const ArgumentType& args, const char* m) {
-    args.GetIsolate()->ThrowException(v8::Exception::Error(
-		v8::String::NewFromUtf8(args.GetIsolate(), m)
-		));
-#endif
-
 bool Syslog::connected_ = false;
 char Syslog::name[1024];
 
@@ -37,11 +24,11 @@ Syslog::init ( const ArgumentType& args)
 	ReturnableHandleScope scope(args);
 
 	if (args.Length() == 0 || !args[0]->IsString()) {
-		return ThrowException(args, "Must give daemonname string as argument");
+		return scope.ThrowError("Must give daemonname string as argument");
 	}
 	
 	if (args.Length() < 3 ) {
-		return ThrowException(args, "Must have at least 3 params as argument");
+		return scope.ThrowError("Must have at least 3 params as argument");
 	}
 	if(connected_)
 		close();
@@ -79,17 +66,17 @@ Syslog::log ( const ArgumentType& args)
 	String::Utf8Value msg(args[1]);
 
 	if(!connected_)
-		return ThrowException(args, "Init method has to be called before syslog");
+		return scope.ThrowError("Init method has to be called before syslog");
 	
 	if(!args[1]->IsString()) {
-		return ThrowException(args, "Log message must be a string");
+		return scope.ThrowError("Log message must be a string");
 	}
 
 	struct log_request * log_req = (struct log_request *) malloc(
 		sizeof(*log_req) + msg.length());
 
 	if(!log_req) {
-		return ThrowException(args, "Could not allocate enough memory");
+		return scope.ThrowError("Could not allocate enough memory");
 	}
 
 	log_req->work.data = log_req;
@@ -126,15 +113,15 @@ Syslog::setMask ( const ArgumentType& args)
 	ReturnableHandleScope scope(args);
 	
 	if (args.Length() < 1) {
-		return ThrowException(args, "You must provide an mask");
+		return scope.ThrowError("You must provide an mask");
 	}
 	
 	if (!args[0]->IsNumber()) {
-		return ThrowException(args, "First parameter (mask) should be numeric");
+		return scope.ThrowError("First parameter (mask) should be numeric");
 	}
 	
 	if (args.Length() == 2 && !args[1]->IsBoolean()) {
-		return ThrowException(args, "Second parameter (upTo) should be boolean");
+		return scope.ThrowError("Second parameter (upTo) should be boolean");
 	}
 	
 	if (args.Length() == 2 && args[1]->IsBoolean()) {

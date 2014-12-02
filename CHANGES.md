@@ -1,3 +1,11 @@
+2014-12-02, Version 1.2.1
+=========================
+
+ * Remove homegrown ThrowException shim. (Ben Noordhuis)
+
+ * Upgrade compat.h and compat-inl.h. (Ben Noordhuis)
+
+
 2014-11-25, Version 1.2.0
 =========================
 
