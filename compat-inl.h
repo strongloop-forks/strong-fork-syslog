@@ -19,7 +19,7 @@
 
 namespace compat {
 
-#if defined(COMPAT_NODE_VERSION_10)
+#if !NODE_VERSION_AT_LEAST(0, 11, 0)
 #define COMPAT_ISOLATE
 #define COMPAT_ISOLATE_
 #else
@@ -33,64 +33,11 @@ template <typename T>
 inline void Use(const T&) {}
 
 template <typename T>
-class HasGetConstructorMethod {
-#if defined(_MSC_VER) && _MSC_VER < 1800
- public:
-  // VS before 2013 doesn't handle SFINAE.  Because V8 3.29 does not compile
-  // with older VS versions, if the compiler is not at least VS 2013, we know
-  // that we are building against V8 3.28 or older.
-  static const bool value = true;
-#else
-  template <typename U>
-  static int16_t M(int (*)[sizeof(&U::GetConstructor)]);
-  template <typename U>
-  static int32_t M(...);
-
- public:
-  static const bool value = (sizeof(M<T>(0)) == sizeof(int16_t));
-#endif
-};
-
-// V8 doesn't export a version macro that we can #ifdef on so we apply some
-// SFINAE magic to figure out with what V8 version we are dealing.  In truth,
-// Object::GetConstructor() was removed sometime during the 3.28 development
-// cycle but we only have to discern between 3.26 and 3.29 because those are
-// the V8 versions that joyent/node and node-forward/node ship respectively.
-static const bool AT_LEAST_V8_3_29 =
-    (HasGetConstructorMethod<v8::Object>::value == false);
-
-template <bool AT_LEAST_V8_3_29, typename T, typename U>
-void SetAddHistogramSampleFunction(U*, v8::AddHistogramSampleCallback callback,
-                                   int (*)[AT_LEAST_V8_3_29 == false] = 0) {
-  T::SetAddHistogramSampleFunction(callback);
-}
-
-template <bool AT_LEAST_V8_3_29, typename T, typename U>
-void SetAddHistogramSampleFunction(U* isolate,
-                                   v8::AddHistogramSampleCallback callback,
-                                   int (*)[AT_LEAST_V8_3_29 == true] = 0) {
-  isolate->SetAddHistogramSampleFunction(callback);
-}
-
-template <bool AT_LEAST_V8_3_29, typename T, typename U>
-void SetCreateHistogramFunction(U*, v8::CreateHistogramCallback callback,
-                                int (*)[AT_LEAST_V8_3_29 == false] = 0) {
-  T::SetCreateHistogramFunction(callback);
-}
-
-template <bool AT_LEAST_V8_3_29, typename T, typename U>
-void SetCreateHistogramFunction(U* isolate,
-                                v8::CreateHistogramCallback callback,
-                                int (*)[AT_LEAST_V8_3_29 == true] = 0) {
-  isolate->SetCreateHistogramFunction(callback);
-}
-
-template <typename T>
 inline v8::Local<T> ToLocal(v8::Local<T> handle) {
   return handle;
 }
 
-#if defined(COMPAT_NODE_VERSION_10)
+#if !NODE_VERSION_AT_LEAST(0, 11, 0)
 template <typename T>
 inline v8::Local<T> ToLocal(v8::Handle<T> handle) {
   return v8::Local<T>(*handle);
@@ -148,13 +95,22 @@ v8::Local<v8::Integer> Integer::NewFromUnsigned(v8::Isolate* isolate,
 
 void Isolate::SetAddHistogramSampleFunction(
     v8::Isolate* isolate, v8::AddHistogramSampleCallback callback) {
-  I::SetAddHistogramSampleFunction<I::AT_LEAST_V8_3_29, v8::V8>(isolate,
-                                                                callback);
+#if !NODE_VERSION_AT_LEAST(1, 0, 0)
+  I::Use(isolate);
+  v8::V8::SetAddHistogramSampleFunction(callback);
+#else
+  isolate->SetAddHistogramSampleFunction(callback);
+#endif
 }
 
 void Isolate::SetCreateHistogramFunction(v8::Isolate* isolate,
                                          v8::CreateHistogramCallback callback) {
-  I::SetCreateHistogramFunction<I::AT_LEAST_V8_3_29, v8::V8>(isolate, callback);
+#if !NODE_VERSION_AT_LEAST(1, 0, 0)
+  I::Use(isolate);
+  v8::V8::SetCreateHistogramFunction(callback);
+#else
+  isolate->SetCreateHistogramFunction(callback);
+#endif
 }
 
 v8::Local<v8::Number> Number::New(v8::Isolate* isolate, double value) {
@@ -245,7 +201,7 @@ v8::Isolate* ReturnableHandleScope::isolate() const {
   return args_.GetIsolate();
 }
 
-#if defined(COMPAT_NODE_VERSION_10)
+#if !NODE_VERSION_AT_LEAST(0, 11, 0)
 
 void CpuProfiler::StartCpuProfiling(v8::Isolate* isolate,
                                     v8::Local<v8::String> title) {
@@ -323,7 +279,7 @@ ReturnType ReturnableHandleScope::Return(v8::Local<v8::Value> value) {
   return handle_scope_.Close(value);
 }
 
-#elif defined(COMPAT_NODE_VERSION_12)
+#else
 
 void CpuProfiler::StartCpuProfiling(v8::Isolate* isolate,
                                     v8::Local<v8::String> title) {
