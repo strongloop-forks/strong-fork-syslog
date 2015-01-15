@@ -1,3 +1,9 @@
+2015-01-15, Version 1.2.2
+=========================
+
+ * Upgrade compat.h and compat-inl.h (Ryan Graham)
+
+
 2014-12-02, Version 1.2.1
 =========================
 
@@ -45,10 +51,6 @@
 
  * use new nodemodule annotation (schamane)
 
-
-2012-07-09, Version 1.1.5
-=========================
-
  * fix build for node-gyp and remove deprecated code (schamane)
 
 
@@ -56,6 +58,12 @@
 =========================
 
  * merge new version 1.0.3 (schamane)
+
+
+2012-07-09, Version 1.1.5
+=========================
+
+ * fix build for node-gyp and remove deprecated code (schamane)
 
  * Bump new version 1.1.4 (schamane)
 
