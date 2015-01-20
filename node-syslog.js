@@ -53,12 +53,3 @@ LOG_NOTICE		: 5,
 LOG_INFO		: 6,
 LOG_DEBUG		: 7
 };
-
-/*
- * Attach destroy handling
- *
- * XXX(sam) consider using AtExit: joyent/node#e4a8d261
- */
-process.on('exit', function() {
-	SyslogWrapper.close();
-});
