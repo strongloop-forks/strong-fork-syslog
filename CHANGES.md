@@ -1,3 +1,11 @@
+2015-01-21, Version 1.2.3
+=========================
+
+ * Fix build for v8 3.28.73 (node v0.11.15) (Sam Roberts)
+
+ * Do not close syslog on exit (Sam Roberts)
+
+
 2015-01-15, Version 1.2.2
 =========================
 
