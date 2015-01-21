@@ -1,6 +1,6 @@
 {
   "name": "strong-fork-syslog",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "main": "./node-syslog",
   "engines": {
     "node": ">=0.8.0"
